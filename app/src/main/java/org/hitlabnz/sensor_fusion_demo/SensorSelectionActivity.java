@@ -12,8 +12,10 @@ import android.support.v4.app.FragmentActivity;
 import android.support.v4.app.FragmentManager;
 import android.support.v4.app.FragmentPagerAdapter;
 import android.support.v4.view.ViewPager;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.MotionEvent;
 
 /**
  * The main activity where the user can select which sensor-fusion he wants to try out
@@ -56,6 +58,7 @@ public class SensorSelectionActivity extends FragmentActivity {
         	// If a gyroscope is unavailable, display a warning.
         	displayHardwareMissingWarning();
         }
+        Log.i("TS","App created.");
     }
 
     private void displayHardwareMissingWarning() {

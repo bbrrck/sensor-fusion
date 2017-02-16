@@ -56,7 +56,6 @@ public class ApplicationTest {
         onView(withId(R.id.webViewAbout)).check(matches(ViewMatchers.isDisplayed()));
     }
 
-
     public void AssertThatAboutActionMenuExists() {
         onView(withId(R.id.action_about)).check(matches(withText("About")));
     }

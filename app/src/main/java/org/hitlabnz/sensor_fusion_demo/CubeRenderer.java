@@ -6,7 +6,20 @@ import javax.microedition.khronos.opengles.GL10;
 import org.hitlabnz.sensor_fusion_demo.orientationProvider.OrientationProvider;
 import org.hitlabnz.sensor_fusion_demo.representation.Quaternion;
 
+import android.app.AlertDialog;
+import android.app.Dialog;
+import android.app.DialogFragment;
+import android.content.Context;
+import android.content.DialogInterface;
 import android.opengl.GLSurfaceView;
+import android.os.Bundle;
+import android.os.Environment;
+import android.util.Log;
+
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 
 /**
  * Class that implements the rendering of a cube with the current rotation of the device that is provided by a
@@ -21,17 +34,77 @@ public class CubeRenderer implements GLSurfaceView.Renderer {
      */
     private Cube mCube;
 
+    static public class DeleteFileDialogFragment extends DialogFragment {
+        @Override
+        public Dialog onCreateDialog(Bundle savedInstanceState) {
+            // Use the Builder class for convenient dialog construction
+            AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
+            builder.setMessage("Delete the file?")
+                    .setPositiveButton("Delete", new DialogInterface.OnClickListener() {
+                        public void onClick(DialogInterface dialog, int id) {
+                            Log.i("Dialog","DELETE!");
+                        }
+                    })
+                    .setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+                        public void onClick(DialogInterface dialog, int id) {
+                            Log.i("Dialog","Cancel.");
+                        }
+                    });
+            // Create the AlertDialog object and return it
+            return builder.create();
+        }
+    }
+    private DeleteFileDialogFragment mDeleteDialog = new DeleteFileDialogFragment();
+
     /**
      * The current provider of the device orientation.
      */
     private OrientationProvider orientationProvider = null;
     private Quaternion quaternion = new Quaternion();
+    private boolean mScanOn = false;
+    private File mMriderFile;
+    private int numpts = 0;
+
+    public boolean isScanning() { return mScanOn; }
+
+    public void startScanning() {
+        if ( !isExternalStorageWritable() ) {
+            Log.e("Exception","External storage not writable.");
+            return;
+        }
+        mScanOn = true;
+        mCube.activate();
+        Log.i("Scanning","START");
+        writeToFile("CURVE",true/* append */);
+        Log.i("Scanning","CURVE");
+        addSegment();
+    }
+
+    public void addSegment() {
+        writeToFile("SEGMENT",true/* append */);
+        Log.i("Scanning","SEGMENT");
+    }
+
+    public void stopScanning() {
+        mScanOn = false;
+        mCube.deactivate();
+        Log.i("Scanning","STOP");
+    }
 
     /**
      * Initialises a new CubeRenderer
      */
-    public CubeRenderer() {
+    public CubeRenderer(Context context) {
+        // init the cube
         mCube = new Cube();
+        // open Morphorider file
+        mMriderFile = new File( context.getExternalFilesDir(null), "mrider.txt");
+        if(mMriderFile.exists()) {
+            //mDeleteDialog.show();
+            //mMriderFile.delete();
+        }
+        // clear the file
+        writeToFile("MORPHORIDER NETWORK",false/*do not append, erase*/);
     }
 
     /**
@@ -45,12 +118,32 @@ public class CubeRenderer implements GLSurfaceView.Renderer {
         this.orientationProvider = orientationProvider;
     }
 
+    public boolean isExternalStorageWritable() {
+        String state = Environment.getExternalStorageState();
+        if (Environment.MEDIA_MOUNTED.equals(state))
+            return true;
+        return false;
+    }
+
+    private void writeToFile(String data, boolean append) {
+        try {
+            BufferedWriter writer = new BufferedWriter(
+                    new FileWriter(mMriderFile,append));
+            writer.write(data+"\n");
+            writer.close();
+        }
+        catch (IOException e) {
+            Log.e("Exception","File write failed: "+e.toString());
+        }
+    }
+
     /**
      * Perform the actual rendering of the cube for each frame
      * 
      * @param gl The surface on which the cube should be rendered
      */
     public void onDrawFrame(GL10 gl) {
+
         // clear screen
         gl.glClear(GL10.GL_COLOR_BUFFER_BIT);
 
@@ -102,6 +195,15 @@ public class CubeRenderer implements GLSurfaceView.Renderer {
             drawTranslatedCube(gl, dist, 0, 0);
         }
 
+        if( mScanOn ) {
+            long seconds = System.currentTimeMillis();
+            String outputString = String.format("%16d ",seconds);
+            outputString += quaternion.toString();
+            writeToFile(outputString,true/*append*/);
+            numpts++;
+            // Output stuff to log
+            Log.i("Time+Quat", outputString);
+        }
         // draw our object
         gl.glEnableClientState(GL10.GL_VERTEX_ARRAY);
         gl.glEnableClientState(GL10.GL_COLOR_ARRAY);
