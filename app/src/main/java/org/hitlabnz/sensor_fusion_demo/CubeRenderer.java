@@ -75,7 +75,8 @@ public class CubeRenderer implements GLSurfaceView.Renderer {
         mScanOn = true;
         mCube.activate();
         Log.i("Scanning","START");
-        writeToFile("CURVE",true/* append */);
+        // default : 1 0 (boundary, open)
+        writeToFile("CURVE  1  0",true/* append */);
         Log.i("Scanning","CURVE");
         addSegment();
     }
@@ -142,6 +143,7 @@ public class CubeRenderer implements GLSurfaceView.Renderer {
      * 
      * @param gl The surface on which the cube should be rendered
      */
+    private long lastms = 0;
     public void onDrawFrame(GL10 gl) {
 
         // clear screen
@@ -195,14 +197,44 @@ public class CubeRenderer implements GLSurfaceView.Renderer {
             drawTranslatedCube(gl, dist, 0, 0);
         }
 
-        if( mScanOn ) {
-            long seconds = System.currentTimeMillis();
-            String outputString = String.format("%16d ",seconds);
-            outputString += quaternion.toString();
-            writeToFile(outputString,true/*append*/);
-            numpts++;
-            // Output stuff to log
-            Log.i("Time+Quat", outputString);
+        if (mScanOn) {
+            long ms = System.currentTimeMillis();
+
+            // acquisition frequency = 50 Hz
+            if (ms-lastms > 20) {
+
+                // rotation matrix
+                float M[] = quaternion.getMatrix4x4().getMatrix();
+
+                // tangent + normal
+                float   tx = M[4],
+                        ty = M[5],
+                        tz = M[6],
+                        nx = M[8],
+                        ny = M[9],
+                        nz = M[10];
+
+                // format
+                String scalar = " %+8.6f";
+                String vector = scalar+scalar+scalar;
+
+                // the output string
+                String output = String.format("%16d ",ms);
+                output += String.format(vector+vector,tx,ty,tz,nx,ny,nz);
+                writeToFile(output,true/*append*/);
+                numpts++;
+
+                // send matrix to log
+                String one = "   %+4.2f ";
+                String four = one + one + one + one;
+                Log.i("Ve", "  ___B___  ___T___  ___N___ ");
+                Log.i("Rx", String.format(four, M[0], M[4], M[8], M[12]));
+                Log.i("Ry", String.format(four, M[1], M[5], M[9], M[13]));
+                Log.i("Rz", String.format(four, M[2], M[6], M[10], M[14]));
+                Log.i("Rw", String.format(four, M[3], M[7], M[11], M[15]));
+                Log.i("END", " ");
+                lastms = ms;
+            }
         }
         // draw our object
         gl.glEnableClientState(GL10.GL_VERTEX_ARRAY);
